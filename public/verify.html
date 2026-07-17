@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MATT Wallet Verification</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: radial-gradient(circle at top, #20305f, #090d1d 55%); }
+    main { width: min(92vw, 540px); background: rgba(15,20,43,.94); border: 1px solid #3a4f92; border-radius: 24px; padding: 28px; box-shadow: 0 24px 80px rgba(0,0,0,.45); }
+    h1 { margin: 0 0 8px; font-size: 2rem; }
+    p { color: #c7d1f3; line-height: 1.55; }
+    button { width: 100%; margin-top: 12px; border: 0; border-radius: 14px; padding: 15px; font-size: 1rem; font-weight: 800; cursor: pointer; background: #ffd24a; color: #151515; }
+    button:disabled { opacity: .55; cursor: wait; }
+    #status { min-height: 48px; margin-top: 18px; padding: 12px; border-radius: 12px; background: #0b1025; white-space: pre-wrap; word-break: break-word; }
+    .safe { font-size: .9rem; color: #9eabd5; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Verify your MATT wallet</h1>
+  <p>Connect your Ronin-compatible wallet and sign a harmless verification message.</p>
+  <p class="safe">This does not transfer MATT, spend RON, or grant token approval.</p>
+  <button id="verify">Connect Wallet & Sign</button>
+  <div id="status">Ready.</div>
+</main>
+<script>
+const button = document.querySelector("#verify");
+const status = document.querySelector("#status");
+const token = new URLSearchParams(location.search).get("t");
+
+button.addEventListener("click", async () => {
+  try {
+    if (!token) throw new Error("Missing verification token.");
+    if (!window.ethereum) throw new Error("Ronin Wallet or another compatible wallet is required.");
+    button.disabled = true;
+    status.textContent = "Requesting wallet access…";
+    const [wallet] = await ethereum.request({ method: "eth_requestAccounts" });
+    const challengeResponse = await fetch(`/api/verify/challenge?t=${encodeURIComponent(token)}`);
+    const challenge = await challengeResponse.json();
+    if (!challengeResponse.ok) throw new Error(challenge.error || "Verification link expired.");
+    status.textContent = "Please sign the verification message in your wallet…";
+    const signature = await ethereum.request({
+      method: "personal_sign",
+      params: [challenge.message, wallet]
+    });
+    status.textContent = "Checking signature and assigning your role…";
+    const response = await fetch("/api/verify/complete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token, wallet, signature })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || result.error || "Verification failed.");
+    status.textContent = `Verified!\nWallet: ${result.wallet}\nRole: ${result.role}\n\nYou may return to Discord.`;
+    button.remove();
+  } catch (error) {
+    status.textContent = `Error: ${error.message || error}`;
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
