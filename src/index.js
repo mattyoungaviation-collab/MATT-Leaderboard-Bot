@@ -46,7 +46,7 @@ const config = {
 const store = createStore(config.dataFile);
 const provider = new JsonRpcProvider(config.rpcUrl, 2020, { staticNetwork: true });
 const matt = new Contract(config.mattContract, ["function balanceOf(address) view returns (uint256)"], provider);
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const leaderboardClient = createLeaderboardClient({ siteUrl: config.siteUrl, store });
 const app = express();
 
